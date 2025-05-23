@@ -74,6 +74,7 @@ AUTO_SEND_AFTER_SUBSCRIBE = environ.get('AUTO_SEND_AFTER_SUBSCRIBE', 'True').low
 SUPPORT_LINK = environ.get('SUPPORT_LINK', 'https://t.me/your_support_group')
 UPDATES_LINK = environ.get('UPDATES_LINK', 'https://t.me/your_updates_channel')
 OWNER_LINK = environ.get('OWNER_LINK', 'https://t.me/your_username')
+DEVELOPER_LINK = environ.get('DEVELOPER_LINK', 'https://t.me/your_developer_username') # Placeholder for developer's contact
 
 # Heroku settings
 if 'DYNO' in environ:
