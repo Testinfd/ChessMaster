@@ -90,9 +90,12 @@ class Bot(Client):
         
         try:
             await self.send_message(chat_id=LOG_CHANNEL, text=start_msg)
+            logging.info(f"Startup message sent to LOG_CHANNEL: {LOG_CHANNEL}")
         except Exception as e:
-            print(f"Error sending startup message: {e}")
-            print("Make sure the bot is an admin in the LOG_CHANNEL with send message permission")
+            # Log the error but continue bot operation
+            logging.error(f"Failed to send startup message to LOG_CHANNEL ({LOG_CHANNEL}): {e}. The bot will continue to run.")
+            # Optionally, print a less alarming message to console as well
+            print(f"[Startup Log Error] Could not send message to LOG_CHANNEL {LOG_CHANNEL}. Check Render logs for details. Bot is continuing.")
         
         print("Loading plugins...")
         for name in files:
@@ -111,28 +114,42 @@ class Bot(Client):
                 
         print("Bot plugins loaded!")
 
-    async def stop(self, *args):
+    async def stop_custom(self, *args):
+        logging.info("Executing custom stop actions...")
         await super().stop()
-        print("Bot Stopped!")
+        logging.info("Pyrogram client stopped.")
+        print("Bot Stopped Gracefully!")
 
 bot = Bot()
 
 async def main_start():
     web_server_port = int(environ.get("PORT", "8080"))
-    asyncio.create_task(start_web_server(port=web_server_port))
+    # Start the web server as a background task
+    web_task = asyncio.create_task(start_web_server(port=web_server_port))
 
-    logging.info("Attempting to start Pyrogram bot...")
-    await bot.start() # Start the Pyrogram bot
-    logging.info("Pyrogram bot.start() method has completed.")
-    print("Pyrogram Bot and Web Server should be running.")
-    await idle() # Keep the bot running
+    logging.info("Attempting to connect and start Pyrogram bot client...")
+    try:
+        await bot.start() # This starts the client and loads plugins as per __init__
+        logging.info("Pyrogram bot client has started.")
+        print("Pyrogram Bot and Web Server should be running.")
+        await idle() # This keeps the bot running and processing updates
+    except Exception as e:
+        logging.error(f"An error occurred during bot startup or idle: {e}", exc_info=True)
+    finally:
+        logging.info("Bot idle() has been exited or an error occurred. Stopping bot...")
+        await bot.stop_custom()
+        if not web_task.done():
+            web_task.cancel()
+            try:
+                await web_task
+            except asyncio.CancelledError:
+                logging.info("Web server task cancelled.")
+        logging.info("Application shutdown complete.")
 
 if __name__ == "__main__":
     try:
         loop.run_until_complete(main_start())
     except KeyboardInterrupt:
-        print("Bot Stopped by KeyboardInterrupt!")
-    finally:
-        if loop.is_running():
-            loop.run_until_complete(bot.stop())
-        print("Cleanup finished.") 
+        logging.info("KeyboardInterrupt received, initiating graceful shutdown...")
+    # The finally block in main_start() will handle the shutdown
+    print("Application has been shut down from __main__.") 
