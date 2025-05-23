@@ -9,7 +9,10 @@ def get_mongo_client(uri):
     """Create and return a MongoDB client with proper settings."""
     try:
         if uri.startswith('mongodb+srv://'):
-            client = MongoClient(uri, ssl_cert_reqs=ssl.CERT_NONE)
+            # For SRV URIs, enable TLS and allow invalid certificates if that's the intended behavior
+            # (equivalent to ssl_cert_reqs=ssl.CERT_NONE).
+            # Consider if you truly need to bypass certificate verification in production.
+            client = MongoClient(uri, tls=True, tlsAllowInvalidCertificates=True)
         else:
             client = MongoClient(uri)
         return client
