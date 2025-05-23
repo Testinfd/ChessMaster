@@ -28,6 +28,7 @@ logger = logging.getLogger(__name__)
 
 @Client.on_message(filters.command("start") & filters.incoming)
 async def start(client, message):
+    logger.info(f"/start command received from user {message.from_user.id} in chat {message.chat.id}")
     if message.chat.type in ['group', 'supergroup']:
         # If command is used in a group
         buttons = [[

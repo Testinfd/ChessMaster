@@ -64,10 +64,16 @@ class Bot(Client):
     async def start(self):
         await super().start()
         me = await self.get_me()
-        temp.BOT = self
-        temp.ME = me.id
-        temp.U_NAME = me.username
-        temp.B_NAME = me.first_name
+        if me:
+            logging.info(f"Pyrogram client initialized. Bot ID: {me.id}, Username: @{me.username}")
+            temp.BOT = self
+            temp.ME = me.id
+            temp.U_NAME = me.username
+            temp.B_NAME = me.first_name
+        else:
+            logging.error("Failed to get bot details (self.get_me() returned None). Check API_ID, API_HASH, BOT_TOKEN.")
+            # You might want to stop the bot here or handle this more gracefully
+            return # Prevent further execution if bot details are not fetched
         
         print(f"Bot Started as {me.first_name}")
         
@@ -112,22 +118,12 @@ class Bot(Client):
 bot = Bot()
 
 async def main_start():
-    # Start the web server first, or concurrently
-    # The PORT variable is imported from info.py
-    # Convert PORT to int, as it's read as a string from environ
-    web_server_port = int(environ.get("PORT", "8080")) # Ensure PORT is an int
-    
-    # It's better to run the web server as a background task
-    # so it doesn't block the bot's startup or other asyncio tasks.
-    # However, for simplicity and to ensure it starts before idle(),
-    # we can await its start here if it's quick.
-    # For robust applications, consider asyncio.create_task for the web server
-    # and manage its lifecycle.
-    
-    # Start web server
-    asyncio.create_task(start_web_server(port=web_server_port)) # Run web server concurrently
+    web_server_port = int(environ.get("PORT", "8080"))
+    asyncio.create_task(start_web_server(port=web_server_port))
 
+    logging.info("Attempting to start Pyrogram bot...")
     await bot.start() # Start the Pyrogram bot
+    logging.info("Pyrogram bot.start() method has completed.")
     print("Pyrogram Bot and Web Server should be running.")
     await idle() # Keep the bot running
 
