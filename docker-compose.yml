@@ -1,0 +1,11 @@
+version: '3'
+
+services:
+  bot:
+    build: .
+    container_name: chess_courses_bot
+    restart: always
+    volumes:
+      - ./.env:/app/.env
+    environment:
+      - TZ=UTC 

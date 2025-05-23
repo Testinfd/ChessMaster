@@ -1,0 +1,15 @@
+pyrogram==2.0.106
+tgcrypto==1.2.5
+pymongo==4.5.0
+motor==3.2.0
+marshmallow==3.20.1
+python-dotenv==1.0.0
+aiofiles==23.1.0
+dnspython==2.4.2
+pytz==2023.3
+requests==2.31.0
+urllib3==2.0.4
+certifi==2023.7.22
+aiodns==3.0.0
+aiohttp==3.8.5
+async-timeout==4.0.3 

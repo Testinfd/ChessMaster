@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: chess-courses-bot
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python bot.py
+    plan: free
+    autoDeploy: false
+    envVars:
+      - key: API_ID
+        sync: false
+      - key: API_HASH
+        sync: false
+      - key: BOT_TOKEN
+        sync: false
+      - key: DATABASE_URI
+        sync: false
+      - key: DATABASE_NAME
+        value: chess_courses_bot
+      - key: ADMINS
+        sync: false
+      - key: LOG_CHANNEL
+        sync: false
+      - key: COURSE_CHANNEL
+        sync: false
+      - key: PUBLIC_CHANNEL
+        sync: false 

@@ -1,0 +1,98 @@
+{
+  "name": "Chess Courses Bot",
+  "description": "A Telegram bot designed to help share and manage chess courses.",
+  "keywords": [
+    "telegram",
+    "pyrogram",
+    "chess",
+    "education",
+    "bot"
+  ],
+  "repository": "https://github.com/yourusername/ChessCoursesBot",
+  "success_url": "https://t.me/your_bot_username",
+  "logo": "https://example.com/chess_logo.jpg",
+  "website": "https://github.com/yourusername/ChessCoursesBot",
+  "env": {
+    "API_ID": {
+      "description": "Get this value from https://my.telegram.org",
+      "required": true
+    },
+    "API_HASH": {
+      "description": "Get this value from https://my.telegram.org",
+      "required": true
+    },
+    "BOT_TOKEN": {
+      "description": "Get this from @BotFather",
+      "required": true
+    },
+    "ADMINS": {
+      "description": "ID of admin users (comma-separated)",
+      "required": true
+    },
+    "DATABASE_URI": {
+      "description": "MongoDB connection URI",
+      "required": true
+    },
+    "DATABASE_NAME": {
+      "description": "MongoDB database name",
+      "value": "chess_courses_bot",
+      "required": false
+    },
+    "LOG_CHANNEL": {
+      "description": "Channel ID for bot logs",
+      "required": true
+    },
+    "COURSE_CHANNEL": {
+      "description": "Private channel ID for courses",
+      "required": true
+    },
+    "PUBLIC_CHANNEL": {
+      "description": "Public channel ID for announcements",
+      "required": true
+    },
+    "SUPPORT_CHAT_ID": {
+      "description": "Support group ID",
+      "required": false
+    },
+    "FORCE_SUB": {
+      "description": "Force users to subscribe to channel (True/False)",
+      "value": "False",
+      "required": false
+    },
+    "SHORTENER_ENABLED": {
+      "description": "Enable URL shortener (True/False)",
+      "value": "False",
+      "required": false
+    },
+    "TOKEN_VERIFICATION_ENABLED": {
+      "description": "Enable token verification (True/False)",
+      "value": "False",
+      "required": false
+    },
+    "TUTORIAL_BUTTON_ENABLED": {
+      "description": "Enable tutorial button (True/False)",
+      "value": "False",
+      "required": false
+    },
+    "PREMIUM_ENABLED": {
+      "description": "Enable premium features (True/False)",
+      "value": "False",
+      "required": false
+    },
+    "PICS": {
+      "description": "Banner image URLs (comma-separated)",
+      "required": false
+    }
+  },
+  "buildpacks": [
+    {
+      "url": "heroku/python"
+    }
+  ],
+  "formation": {
+    "worker": {
+      "quantity": 1,
+      "size": "eco"
+    }
+  }
+} 
