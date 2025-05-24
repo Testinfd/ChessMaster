@@ -20,6 +20,7 @@ A Telegram bot designed to help share and manage chess courses. This bot allows 
 - **Multiple Database Support**: Fallback database for redundancy
 - **Force Subscribe**: Require users to join channels before downloading
 - **Auto-File Send**: Automatically send files when a user subscribes
+- **Message Link Based Course Creation**: Add courses using message links instead of forwarding files
 
 ## Setup
 
@@ -103,14 +104,6 @@ Restrict access with verification tokens:
 TOKEN_VERIFICATION_ENABLED=True
 ```
 
-Use admin commands:
-- `/gentoken` - Generate new verification tokens
-- `/mytokens` - List your tokens
-- `/revoketoken` - Revoke a token
-
-Users must verify with:
-- `/verify TOKEN` - Verify access with a token
-
 ### Force Subscribe
 
 Require users to join channels before downloading:
@@ -147,39 +140,100 @@ PREMIUM_ENABLED=True
 REFER_SYSTEM_ENABLED=True
 ```
 
+## Command Reference
+
+### User Commands
+
+| Command | Description |
+|---------|-------------|
+| `/start` | Start the bot and see welcome message |
+| `/help` | Show help information with available commands |
+| `/about` | Show information about the bot |
+| `/search [query]` | Search for courses by name |
+| `/token [code]` | Verify access using a verification token |
+| `/premium` | Show premium status or premium plan information |
+
+### Admin Commands
+
+#### Basic Administration
+| Command | Description |
+|---------|-------------|
+| `/stats` | View bot statistics including user count and storage usage |
+| `/broadcast [message]` | Send a message to all bot users |
+
+#### Course Management
+| Command | Description |
+|---------|-------------|
+| `/course` | Start guided process to add a new course |
+| `/addcourse` | Begin adding a new course through direct file forwarding |
+| `/addcourselinks` | Add a course using message links instead of forwarding files |
+| `/done` | Complete file collection when adding a course |
+| `/skip` | Skip adding a banner image during course creation |
+
+#### Token System
+| Command | Description |
+|---------|-------------|
+| `/gentoken [max_uses] [days]` | Generate a new verification token with optional max uses and expiry |
+| `/mytokens` | List all tokens created by you |
+| `/tokeninfo [code]` | Get detailed information about a specific token |
+| `/deltoken [code]` | Delete a verification token |
+| `/disabletoken [code]` | Disable a token without deleting it |
+| `/toggleverification` | Toggle whether token verification is required |
+
+#### Premium User Management
+| Command | Description |
+|---------|-------------|
+| `/setpremium [user_id/username] [days]` | Grant premium status to a user for specified days |
+| `/removepremium [user_id/username]` | Remove premium status from a user |
+| `/premiumusers` | List all users with premium status |
+| `/checkpremium [user_id/username]` | Check premium status of a specific user |
+
 ## Usage
 
 ### For Admins
 
-1. **Adding a Course**:
+1. **Adding a Course with File Forwarding**:
    - Upload all course files to your private channel
    - Forward the last file to the bot (adding course name in caption)
    - The bot will ask you to confirm details and add a banner image
    - After confirmation, the bot will post to the public channel
 
-   Alternatively, use the `/course` command to start the guided process.
+2. **Adding a Course with Message Links**:
+   - Use `/addcourselinks` to start the process
+   - Enter the course name when prompted
+   - Send message links in format: `https://t.me/c/channel_id/message_id`
+   - Type `/done` when finished sending links
+   - Optionally add a banner image or type `/skip`
+   - Confirm the course details to publish
 
-2. **Admin Commands**:
-   - `/start` - Start the bot
-   - `/course` - Start adding a new course
-   - `/stats` - View bot statistics
-   - `/broadcast` - Send message to all users
-   - `/gentoken` - Generate verification tokens
-   - `/mytokens` - List your tokens
-   - `/revoketoken` - Revoke a token
+3. **Managing Tokens**:
+   - Generate tokens with: `/gentoken [max_uses] [days]`
+   - View your tokens with: `/mytokens`
+   - Check token details with: `/tokeninfo [code]`
+   - Delete or disable tokens with: `/deltoken [code]` or `/disabletoken [code]`
+
+4. **Managing Premium Users**:
+   - Set premium status: `/setpremium [user_id] 30` (for 30 days)
+   - Remove premium: `/removepremium [user_id]`
+   - View all premium users: `/premiumusers`
+   - Check a specific user: `/checkpremium [user_id]`
 
 ### For Users
 
 1. **Finding Courses**:
    - Use inline search by typing `@YourBotUsername course_name`
+   - Use `/search [query]` to find courses by name
    - Browse the public announcement channel
    - Click "Download Now" on any course to get all files
 
-2. **User Commands**:
-   - `/start` - Start the bot
-   - `/help` - Show help information
-   - `/about` - Show bot information
-   - `/verify` - Verify with a token (if enabled)
+2. **Using Token Verification**:
+   - Receive a token from an admin
+   - Verify access with: `/token YOUR_TOKEN_HERE`
+
+3. **Premium Features**:
+   - Check your premium status with `/premium`
+   - Contact an admin to purchase premium access
+   - Premium users get access to exclusive courses and features
 
 ## Project Structure
 
@@ -189,7 +243,7 @@ REFER_SYSTEM_ENABLED=True
 - `database/` - Database operations
   - `courses_db.py` - Course database operations
   - `users_chats_db.py` - User tracking
-  - `token_verification.py` - Token verification system
+  - `token_db.py` - Token verification system
   - `url_shortener.py` - URL shortener utilities
   - `multi_db.py` - Multiple database support
 - `plugins/` - Bot functionality
@@ -197,6 +251,7 @@ REFER_SYSTEM_ENABLED=True
   - `course_manager.py` - Course upload workflow
   - `inline.py` - Inline search
   - `token_commands.py` - Token verification commands
+  - `premium.py` - Premium user management
 
 ## License
 
