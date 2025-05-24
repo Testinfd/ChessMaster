@@ -8,7 +8,7 @@ A Telegram bot designed to help share and manage chess courses. This bot allows 
 ## Features
 
 - **Multi-file Course Management**: Group related chess course files together
-- **Admin Workflow**: Simplified process for adding new courses with banner images
+- **Admin Workflow**: Simplified process for adding new courses with banner images using **Telegram Message Links**
 - **Public Announcements**: Automatic posts to a public channel with download buttons
 - **Inline Search**: Users can search for courses directly within Telegram
 - **Deep Linking**: One-click download process for users
@@ -20,7 +20,7 @@ A Telegram bot designed to help share and manage chess courses. This bot allows 
 - **Multiple Database Support**: Fallback database for redundancy
 - **Force Subscribe**: Require users to join channels before downloading
 - **Auto-File Send**: Automatically send files when a user subscribes
-- **Message Link Based Course Creation**: Add courses using message links instead of forwarding files
+- **Message Link Based Course Creation**: Add courses using message links instead of forwarding files (Now the primary method)
 
 ## Setup
 
@@ -164,11 +164,10 @@ REFER_SYSTEM_ENABLED=True
 #### Course Management
 | Command | Description |
 |---------|-------------|
-| `/course` | Start guided process to add a new course |
-| `/addcourse` | Begin adding a new course through direct file forwarding |
-| `/addcourselinks` | Add a course using message links instead of forwarding files |
-| `/done` | Complete file collection when adding a course |
-| `/skip` | Skip adding a banner image during course creation |
+| `/addcourse` | Start guided process to add a new course using Telegram message links. This is the primary method. |
+| `/done` | (Used during `/addcourse`) Complete link collection when adding a course via message links. |
+| `/skip` | (Used during `/addcourse`) Skip adding a banner image during course creation. |
+| `/deletecourse [course_id]` | Delete an entire course and its associated files (use with caution!). |
 
 #### Token System
 | Command | Description |
@@ -192,27 +191,24 @@ REFER_SYSTEM_ENABLED=True
 
 ### For Admins
 
-1. **Adding a Course with File Forwarding**:
-   - Upload all course files to your private channel
-   - Forward the last file to the bot (adding course name in caption)
-   - The bot will ask you to confirm details and add a banner image
-   - After confirmation, the bot will post to the public channel
+1. **Adding a Course (Recommended Method: Message Links)**:
+   - Use the `/addcourse` command to start the process.
+   - The bot will prompt you for the **course name**.
+   - Then, send the **Telegram message links** for all files belonging to the course. 
+     - You can send one link per message, or multiple links in a single message (each on a new line).
+     - **Link Format:** `https://t.me/c/CHANNEL_ID/MESSAGE_ID` (for private/supergroup channels) or `https://t.me/USERNAME/MESSAGE_ID` (for public channels).
+     - Ensure the bot has permission to access messages from the source channel(s).
+   - Type `/done` when you have finished sending all the message links.
+   - The bot will then ask if you want to add a **banner image**. You can send an image or type `/skip`.
+   - Finally, review the course details and confirm to publish it. The bot will announce it if configured.
 
-2. **Adding a Course with Message Links**:
-   - Use `/addcourselinks` to start the process
-   - Enter the course name when prompted
-   - Send message links in format: `https://t.me/c/channel_id/message_id`
-   - Type `/done` when finished sending links
-   - Optionally add a banner image or type `/skip`
-   - Confirm the course details to publish
-
-3. **Managing Tokens**:
+2. **Managing Tokens**:
    - Generate tokens with: `/gentoken [max_uses] [days]`
    - View your tokens with: `/mytokens`
    - Check token details with: `/tokeninfo [code]`
    - Delete or disable tokens with: `/deltoken [code]` or `/disabletoken [code]`
 
-4. **Managing Premium Users**:
+3. **Managing Premium Users**:
    - Set premium status: `/setpremium [user_id] 30` (for 30 days)
    - Remove premium: `/removepremium [user_id]`
    - View all premium users: `/premiumusers`

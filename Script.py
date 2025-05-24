@@ -4,7 +4,7 @@ class script(object):
 I'm here to help you discover and share amazing chess educational content.
 
 📚 **Looking for courses?** Just use the search or browse our collection.
-👑 **Want to contribute?** Admins can easily add new courses.
+👑 **Want to contribute?** Admins can easily add new courses using message links.
 
 Let's get started! What would you like to do?"""
 
@@ -16,10 +16,11 @@ Here's what I can do:
 *   `/start` - Get a friendly welcome and quick options.
 *   `/help` - See this helpful message again.
 *   `/about` - Learn more about me and my creators.
+*   `/search [query]` - Search for courses by name.
 *   **Search Inline:** Type my name in any chat followed by your search query to find courses instantly! (e.g., `@YourBotName Beginner Openings`)
 
 **For Admins:**
-*   Manage courses (add, delete).
+*   `/addcourse` - Add a new course using Telegram message links.
 *   View bot statistics.
 *   Broadcast messages to users.
 *   And more! (Type `/adminhelp` for a full list of admin commands)
@@ -37,7 +38,7 @@ I'm built to make finding and sharing chess courses super easy.
 ‣ Powered by: <a href='https://docs.pyrogram.org/'>Pyrogram</a> & <a href='https://www.python.org/'>Python 3</a>
 ‣ Data Stored With: <a href='https://www.mongodb.com/'>MongoDB</a>
 ‣ Currently Chilling On: <a href='https://render.com'>Render</a> (or maybe Heroku, I get around!)
-‣ Version: v1.0.1 [Always Improving!]
+‣ Version: v1.1.0 [Link-Based Course Addition Update!]
 
 Got ideas to make me better? Let my developer know!"""
 
@@ -83,9 +84,9 @@ Easy peasy!"""
 Here are the commands you can use to manage the bot and content:
 
 **Content Management:**
-*   `/course` - Start the guided process to add a new chess course.
-*   `/delete <file_id_or_message_link>` - Delete a specific file from a course.
-*   *(More content commands might be available in specific modules, like course_manager)*
+*   `/addcourse` - Start the guided process to add a new chess course using message links.
+*   `/deletecourse <course_id>` - Delete an entire course (use with caution!).
+*   *(More content commands might be available in specific modules)*
 
 **User & Chat Management:**
 *   `/users` - Get a list of all users who've interacted with the bot.
@@ -107,8 +108,8 @@ Remember, with great power comes great responsibility! 😉"""
 📚 Total Courses: <code>{}</code>
 👥 Total Users: <code>{}</code>
 💬 Total Chats: <code>{}</code>
-💾 Used Storage: <code>{}</code>
-💽 Free Storage: <code>{}</code>"""
+💾 Used Storage: <code>{}</code> (Approximate)
+💽 Free Storage: <code>{}</code> (Server dependent)"""
     
     LOG_TEXT_G = """#NewGroupJoined
 Group Name: {}(<code>{}</code>)
@@ -173,22 +174,22 @@ It might have been removed, or the ID could be incorrect. Please try searching f
     
 💾 **Size:** {file_size}"""
 
-    CHECK_COURSE = """⏳ **Reviewing Your Course Upload...**
+    CHECK_COURSE = """⏳ **Reviewing Your Course Links...**
 
 Please check these details carefully:
 
 **Course Name:** {course_name}
-**Number of Files:** {file_count}
+**Number of Files (from links):** {file_count}
 
-What would you like to do next?
+What would you like to do next? You can use the buttons or type your response (e.g., 'yes', '1').
 1.  🖼️ Add/Change Banner Image
 2.  ✏️ Edit Course Name
 3.  ✅ Confirm and Publish
-4.  ❌ Cancel Upload"""
+4.  ❌ Cancel Course Creation"""
 
-    COURSE_CONFIRM = """✅ **Success! Your chess course has been added to the database!**
+    COURSE_CONFIRM = """✅ **Success! Course '{course_name}' has been created from the provided links!**
 
-It's now available for users to find and download. Great job!"""
+It's now available for users to find and download. Great job! 🎉"""
     
     COURSE_ADDED = """<b>🎉 NEW CHESS COURSE AVAILABLE! 🎉</b>
 
@@ -198,26 +199,29 @@ Click the button below to get all the files for this course. Happy learning!"""
 
     COURSE_HELP = """<b>📖 HOW TO ADD A NEW CHESS COURSE (Admin Guide):</b>
 
-Here are two ways to add courses:
+Adding courses is now done using **Telegram message links**. Here's how:
 
-**Method 1: Forwarding Files (Quick Add)**
-1.  Upload ALL course files to a private channel or chat with me.
-2.  Forward the VERY LAST file from the course to me.
-3.  In the caption of that forwarded message, type the **Course Name**.
-4.  I'll then ask you to confirm the details and optionally add a banner image.
-5.  Once confirmed, I'll make it available and announce it (if configured).
+1.  Use the `/addcourse` command.
+2.  I will first ask you for the **Course Name**.
+3.  Next, send me the Telegram message links for all the files in the course. 
+    *   **Format:** `https://t.me/c/CHANNEL_ID/MESSAGE_ID` (for private/supergroup channels) or `https://t.me/USERNAME/MESSAGE_ID` (for public channels).
+    *   You can send one link per message, or multiple links in a single message (each on a new line).
+    *   Make sure the bot has access to read messages from the source channel(s).
+4.  Once you've sent all the links, type `/done`.
+5.  I'll process the links and ask if you want to add a **banner image** (you can also `/skip` this).
+6.  Finally, you'll confirm the details, and I'll publish the course!
 
-**Method 2: Guided Command**
-*   Use the `/course` command.
-*   I will then guide you step-by-step: asking for the name, then the files, then a banner.
+**Tips for Message Links:**
+*   To get a message link: Right-click (or long-press on mobile) on the message in Telegram and select "Copy Message Link".
+*   Ensure the bot is a member of any private channels you are linking from, or that the links are from public channels.
 
-Choose the method that works best for you!"""
+That's it! This method is more reliable for saving courses. 👍"""
 
     SEARCH_HELP = """<b>🔍 HOW TO FIND CHESS COURSES:</b>
 
 Finding courses is easy! Here are a few ways:
 
-*   **Direct Search:** Just send me a message with the name or keywords of the course you're looking for (e.g., "Sicilian Defense", "Endgame Strategy").
+*   **Direct Search:** Just send me a message with the name or keywords of the course you're looking for (e.g., "Sicilian Defense", "Endgame Strategy"). You can also use the `/search [query]` command.
 *   **Inline Search (Recommended!):**
     1.  Go to any chat (even this one!).
     2.  Type my username: `@YourBotName` (replace `YourBotName` with my actual username).

@@ -4,8 +4,10 @@ import math
 import time
 import asyncio
 import logging
+import requests
+import aiohttp
 from pyrogram.errors import UserNotParticipant
-from info import FORCE_SUB, PUBLIC_CHANNEL, AUTO_DELETE, AUTO_SEND_AFTER_SUBSCRIBE, TUTORIAL_BUTTON_ENABLED, TUTORIAL_BUTTON_URL
+from info import FORCE_SUB, PUBLIC_CHANNEL, AUTO_DELETE, AUTO_SEND_AFTER_SUBSCRIBE, TUTORIAL_BUTTON_ENABLED, TUTORIAL_BUTTON_URL, SHORTENER_API, SHORTENER_DOMAIN, SHORTENER_API_KEY, SHORTENER_ENABLED
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -99,14 +101,10 @@ def get_file_id(msg):
                 return obj, obj.file_id
 
 def clean_text(text):
-    """Clean and format text for better readability."""
+    """Clean text of any special characters and extra whitespace."""
     if not text:
         return ""
-        
-    text = re.sub(r'https?://\S+', '', text)  # Remove URLs
-    text = re.sub(r'[^\w\s]', '', text)       # Remove special chars
-    text = ' '.join(text.split())             # Remove extra spaces
-    return text.strip()
+    return re.sub(r'[^\w\s]', '', text).strip()
 
 def human_to_bytes(size_str):
     """Convert human-readable size to bytes."""
@@ -252,4 +250,94 @@ async def process_pending_downloads(bot, user_id):
     # Clear pending downloads
     temp.PENDING_DOWNLOADS[user_id] = []
     
-    return success 
+    return success
+
+def get_readable_time(seconds):
+    """Get human-readable time from seconds."""
+    result = ''
+    (days, remainder) = divmod(seconds, 86400)
+    days = int(days)
+    if days != 0:
+        result += f'{days}d'
+    (hours, remainder) = divmod(remainder, 3600)
+    hours = int(hours)
+    if hours != 0:
+        result += f'{hours}h'
+    (minutes, seconds) = divmod(remainder, 60)
+    minutes = int(minutes)
+    if minutes != 0:
+        result += f'{minutes}m'
+    seconds = int(seconds)
+    result += f'{seconds}s'
+    return result
+
+def is_valid_token(token):
+    """Check if token is valid (implement your own logic)."""
+    # This is a placeholder - implement your actual validation logic
+    if not token:
+        return False
+    # Simple validation - should be enhanced with database validation
+    return len(token) == 8 and token.isalnum()
+
+async def verify_token(token, user_id):
+    """Verify a token for a user."""
+    from database.token_db import verify_user_token
+    return await verify_user_token(token, user_id)
+
+async def check_token_required(user_id):
+    """Check if a user needs token verification."""
+    from info import TOKEN_VERIFICATION_ENABLED
+    if not TOKEN_VERIFICATION_ENABLED:
+        return False
+    
+    # Check if user is already verified
+    from database.token_db import is_user_verified
+    return not await is_user_verified(user_id)
+
+# URL Shortener Functions
+async def get_shortlink(link):
+    """Get shortened URL for a link if shortener is enabled."""
+    if not SHORTENER_ENABLED or not SHORTENER_API_KEY or not SHORTENER_DOMAIN:
+        return link
+    
+    try:
+        # Different shorteners use different APIs - this is an example for a common format
+        async with aiohttp.ClientSession() as session:
+            if SHORTENER_API:
+                # For APIs like shorte.st, bit.ly, etc.
+                url = SHORTENER_API.replace('{link}', link).replace('{api}', SHORTENER_API_KEY)
+                async with session.get(url) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        if 'shortenedUrl' in data:
+                            return data['shortenedUrl']
+                        elif 'shortlink' in data:
+                            return data['shortlink']
+                        elif 'result_url' in data:
+                            return data['result_url']
+            else:
+                # Default implementation (could be replaced with specific provider API)
+                url = f"https://{SHORTENER_DOMAIN}/api"
+                params = {
+                    'api': SHORTENER_API_KEY,
+                    'url': link
+                }
+                async with session.post(url, json=params) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        if data.get('status') == 'success':
+                            return data.get('shortenedUrl', link)
+    except Exception as e:
+        logger.error(f"Error in shortening URL: {e}")
+    
+    return link
+
+def is_subscribed(bot, user_id, chat_id):
+    """Check if a user is subscribed to a channel."""
+    try:
+        member = bot.get_chat_member(chat_id=chat_id, user_id=user_id)
+        if member.status not in ["left", "kicked"]:
+            return True
+    except Exception as e:
+        logger.error(f"Error checking subscription: {e}")
+    return False 

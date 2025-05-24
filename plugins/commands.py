@@ -11,7 +11,7 @@ from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, ReplyKeyboardRemove, ForceReply, Message, CallbackQuery
 from pyrogram.errors import ChatAdminRequired, FloodWait, UserIsBlocked, InputUserDeactivated, MessageNotModified
 
-from info import ADMINS, LOG_CHANNEL, SUPPORT_CHAT_ID, CUSTOM_FILE_CAPTION, OWNER_USERNAME, DEVELOPER_LINK, OWNER_LINK
+from info import ADMINS, LOG_CHANNEL, SUPPORT_CHAT_ID, CUSTOM_FILE_CAPTION, OWNER_USERNAME, DEVELOPER_LINK, OWNER_LINK, PUBLIC_CHANNEL, TOKEN_VERIFICATION_ENABLED, PREMIUM_ENABLED
 from database.users_chats_db import db
 from database.courses_db import (
     save_course, 
@@ -21,7 +21,7 @@ from database.courses_db import (
     search_courses, 
     get_all_courses
 )
-from utils import temp, get_size, extract_user_id, extract_course_id, send_all_files
+from utils import temp, get_size, extract_user_id, extract_course_id, send_all_files, check_premium_user, check_token_required, get_shortlink
 from Script import script
 
 logger = logging.getLogger(__name__)
@@ -46,6 +46,15 @@ async def start(client, message):
         )
         return
 
+    # Add user to database if not exists
+    if not await db.is_user_exist(message.from_user.id):
+        await db.add_user(message.from_user.id, message.from_user.first_name)
+        # Add timestamp to log message
+        tz = pytz.timezone('Asia/Kolkata')
+        now = datetime.datetime.now(tz)
+        time_str = now.strftime("%Y-%m-%d %H:%M:%S %Z")
+        await client.send_message(LOG_CHANNEL, script.LOG_TEXT_P.format(message.from_user.id, message.from_user.mention, time_str))
+
     # Command used in private chat
     if len(message.command) > 1:
         # Process deep link parameters
@@ -59,16 +68,46 @@ async def start(client, message):
             if not course:
                 await message.reply_text(script.COURSE_NOT_FOUND)
                 return
-                
-            # Add the user to database
-            if not await db.is_user_exist(message.from_user.id):
-                await db.add_user(message.from_user.id, message.from_user.first_name)
-                # Add timestamp to log message
-                tz = pytz.timezone('Asia/Kolkata')
-                now = datetime.datetime.now(tz)
-                time_str = now.strftime("%Y-%m-%d %H:%M:%S %Z")
-                await client.send_message(LOG_CHANNEL, script.LOG_TEXT_P.format(message.from_user.id, message.from_user.mention, time_str))
             
+            # Check token verification
+            if TOKEN_VERIFICATION_ENABLED:
+                needs_verification = await check_token_required(message.from_user.id)
+                if needs_verification and message.from_user.id not in ADMINS:
+                    verification_text = (
+                        "⚠️ **Token Verification Required** ⚠️\n\n"
+                        "To access this course, you need to verify your token first.\n\n"
+                        "Please use the command:\n"
+                        "/token YOUR_TOKEN_HERE\n\n"
+                        "If you don't have a token, please contact an administrator."
+                    )
+                    verification_buttons = [[
+                        InlineKeyboardButton("Contact Admin", url=f"https://t.me/{OWNER_USERNAME}")
+                    ]]
+                    await message.reply_text(
+                        verification_text,
+                        reply_markup=InlineKeyboardMarkup(verification_buttons)
+                    )
+                    return
+            
+            # Check premium requirements if applicable
+            if PREMIUM_ENABLED and course.get('premium_only', False):
+                is_premium = await check_premium_user(message.from_user.id)
+                if not is_premium and message.from_user.id not in ADMINS:
+                    premium_text = (
+                        "💎 **Premium Content** 💎\n\n"
+                        f"The course '{course['course_name']}' is available exclusively for premium users.\n\n"
+                        "Upgrade to premium to access this and other premium courses!\n\n"
+                        "Use /premium to learn more about premium benefits."
+                    )
+                    premium_buttons = [[
+                        InlineKeyboardButton("Get Premium", callback_data="premium_info")
+                    ]]
+                    await message.reply_text(
+                        premium_text,
+                        reply_markup=InlineKeyboardMarkup(premium_buttons)
+                    )
+                    return
+                
             course_files = await get_course_files(course_id)
             
             if not course_files:
@@ -90,15 +129,35 @@ async def start(client, message):
             ]]
             await message.reply_text(complete_text, reply_markup=InlineKeyboardMarkup(buttons))
             return
+        
+        elif param == 'premium':
+            # Handle premium information
+            if PREMIUM_ENABLED:
+                await message.reply_text(
+                    "💎 **Premium Access** 💎\n\n"
+                    "Upgrade to Premium to unlock these exclusive benefits:\n\n"
+                    "• Access to premium-only courses\n"
+                    "• Priority customer support\n"
+                    "• Faster downloads\n"
+                    "• No daily download limits\n\n"
+                    "Use the /premium command to check your current status or learn more about our premium plans."
+                )
+                return
     
     # Regular start command
     buttons = [[
         InlineKeyboardButton('➕ Add to Group', url=f'http://t.me/{temp.U_NAME}?startgroup=true'),
         InlineKeyboardButton('🔍 Search', switch_inline_query_current_chat='')
-    ], [
+    ]]
+    
+    # Add premium button if enabled
+    if PREMIUM_ENABLED:
+        buttons.append([InlineKeyboardButton('💎 Premium', callback_data='premium_info')])
+        
+    buttons.append([
         InlineKeyboardButton('ℹ️ Help', callback_data='help'),
         InlineKeyboardButton('📜 About', callback_data='about')
-    ]]
+    ])
     
     # Choose a random banner image from PICS
     reply_markup = InlineKeyboardMarkup(buttons)
@@ -107,15 +166,6 @@ async def start(client, message):
         caption=script.START_TXT.format(message.from_user.mention),
         reply_markup=reply_markup
     )
-    
-    # Add user to database if not exists
-    if not await db.is_user_exist(message.from_user.id):
-        await db.add_user(message.from_user.id, message.from_user.first_name)
-        # Add timestamp to log message
-        tz = pytz.timezone('Asia/Kolkata')
-        now = datetime.datetime.now(tz)
-        time_str = now.strftime("%Y-%m-%d %H:%M:%S %Z")
-        await client.send_message(LOG_CHANNEL, script.LOG_TEXT_P.format(message.from_user.id, message.from_user.mention, time_str))
 
 @Client.on_message(filters.command("help"))
 async def help(client, message):
@@ -123,6 +173,20 @@ async def help(client, message):
         InlineKeyboardButton('Course Help', callback_data='course_help'),
         InlineKeyboardButton('Search Help', callback_data='search_help')
     ]]
+    
+    # Add premium help if enabled
+    if PREMIUM_ENABLED:
+        buttons.append([InlineKeyboardButton('Premium Help', callback_data='premium_help')])
+        
+    # Add token verification help if enabled
+    if TOKEN_VERIFICATION_ENABLED:
+        buttons.append([InlineKeyboardButton('Token Help', callback_data='token_help')])
+        
+    buttons.append([
+        InlineKeyboardButton('🔙 Back', callback_data='start'),
+        InlineKeyboardButton('🔄 Close', callback_data='close_data')
+    ])
+    
     await message.reply_text(
         text=script.HELP_TXT.format(message.from_user.mention if message.from_user else "Dear user"),
         reply_markup=InlineKeyboardMarkup(buttons),
@@ -152,6 +216,12 @@ async def stats(client, message):
     # Get course and file counts
     courses, _, total_courses = await get_all_courses(max_results=1)
     
+    # Get premium user count if enabled
+    premium_count = 0
+    if PREMIUM_ENABLED:
+        premium_users = await db.get_premium_users()
+        premium_count = len(premium_users)
+    
     # Calculate storage stats
     from database.db_helpers import calculate_used_storage
     from database.courses_db import files_col
@@ -159,27 +229,34 @@ async def stats(client, message):
     used_storage = calculate_used_storage(files_col)
     free_storage = "Unlimited"  # MongoDB Atlas handles storage limits differently
     
+    # Create stats message
+    stats_text = script.STATUS_TXT.format(
+        total_courses, 
+        user_count, 
+        chat_count, 
+        get_size(used_storage), 
+        free_storage
+    )
+    
+    # Add premium stats if enabled
+    if PREMIUM_ENABLED:
+        stats_text += f"\n\n<b>Premium Users:</b> {premium_count}"
+    
     await message.reply_text(
-        script.STATUS_TXT.format(
-            total_courses, 
-            user_count, 
-            chat_count, 
-            get_size(used_storage), 
-            free_storage
-        ),
+        stats_text,
         parse_mode='html'
     )
 
 @Client.on_message(filters.command("course") & filters.user(ADMINS))
-async def course_command(client, message):
-    """Command to manually start the course creation process."""
+async def old_course_command_alias(client, message):
+    """Alias for /addcourse. Guides admin to use the new link-based system."""
+    logger.info(f"User {message.from_user.id} used /course, redirecting to /addcourse info.")
     await message.reply_text(
-        script.COURSE_HELP + # Prepend the detailed help text
-        "\n\nAlright, let's get started!\n\n<b>What's the name of the chess course you want to add?</b>\n(Please send the full name as your next message)",
-        reply_markup=ForceReply(True),
-        disable_web_page_preview=True # In case COURSE_HELP has links
+        "Hi Admin! 👋\n\n" 
+        "To add a new course, please use the `/addcourse` command. "
+        "This will start the process of adding a course using **message links**.\n\n" 
+        "Just type /addcourse and I'll guide you through it!"
     )
-    # The actual course creation will be handled by a conversation handler
 
 @Client.on_message(filters.command("broadcast") & filters.user(ADMINS))
 async def broadcast(client, message):
@@ -253,141 +330,188 @@ async def broadcast_callback(client, callback_query):
                 failed += 1
                 
             # Update status message periodically
-            current_time = datetime.datetime.now()
-            if (current_time - last_update_time).total_seconds() >= update_interval:
+            now = datetime.datetime.now()
+            if (now - last_update_time).total_seconds() >= update_interval:
                 await status_msg.edit_text(
                     text=f"Broadcasting in progress...\n\nSuccess: {success}\nFailed: {failed}"
                 )
-                last_update_time = current_time
+                last_update_time = now
                 
-            # Add small delay to avoid flooding
-            await asyncio.sleep(0.1)
-            
-        # Final status
+        # Final update
         end_time = datetime.datetime.now()
         time_taken = (end_time - start_time).total_seconds()
-        
         await status_msg.edit_text(
-            text=f"Broadcast completed in {time_taken:.2f} seconds.\n\nSuccess: {success}\nFailed: {failed}"
+            text=f"✅ Broadcast Completed!\n\nSuccess: {success}\nFailed: {failed}\nTime taken: {time_taken:.2f} seconds"
         )
 
 @Client.on_callback_query()
 async def cb_handler(client, query):
-    """Handle callback queries for various buttons."""
+    """Handle all callback queries."""
     data = query.data
-    user_id = query.from_user.id
-
-    if data == "close_data":
-        await query.message.delete()
-        return
     
-    # Handling help in group, to avoid editing a message that might be old or not targeted at this user    
-    if data == "help_group":
-        buttons = [[
-            InlineKeyboardButton('Course Help', callback_data=f'course_help_u_{user_id}'), # Add user_id to ensure only user can click
-            InlineKeyboardButton('Search Help', callback_data=f'search_help_u_{user_id}')
-        ]]
-        try:
-            await query.answer() # Answer callback quickly
-            await client.send_message(
-                chat_id=user_id, # Send help to user's PM
-                text=script.HELP_TXT.format(query.from_user.mention if query.from_user else "Dear user"),
-                reply_markup=InlineKeyboardMarkup(buttons),
-                disable_web_page_preview=True
-            )
-            await query.message.reply_text(f"@{query.from_user.username} I've sent the help message to your private chat.")
-        except Exception as e:
-            logger.error(f"Error sending help to PM for user {user_id}: {e}")
-            await query.answer("Could not send help to your PM. Please start a chat with me and type /help.", show_alert=True)
-        return
-        
     if data == "help":
         buttons = [[
-            InlineKeyboardButton('Course Help', callback_data=f'course_help_u_{user_id}'),
-            InlineKeyboardButton('Search Help', callback_data=f'search_help_u_{user_id}')
+            InlineKeyboardButton('Course Help', callback_data='course_help'),
+            InlineKeyboardButton('Search Help', callback_data='search_help')
         ]]
+        
+        # Add premium help if enabled
+        if PREMIUM_ENABLED:
+            buttons.append([InlineKeyboardButton('Premium Help', callback_data='premium_help')])
+            
+        # Add token verification help if enabled
+        if TOKEN_VERIFICATION_ENABLED:
+            buttons.append([InlineKeyboardButton('Token Help', callback_data='token_help')])
+            
+        buttons.append([
+            InlineKeyboardButton('🔙 Back', callback_data='start'),
+            InlineKeyboardButton('🔄 Close', callback_data='close_data')
+        ])
+        
         await query.message.edit_text(
-            text=script.HELP_TXT.format(query.from_user.mention if query.from_user else "Dear user"),
+            text=script.HELP_TXT.format(query.from_user.mention),
             reply_markup=InlineKeyboardMarkup(buttons),
             disable_web_page_preview=True
         )
-        return
         
-    if data == "about":
-        # temp.U_NAME and temp.B_NAME are bot's username and first name
-        # OWNER_LINK is used for the developer URL
+    elif data == "about":
         buttons = [[
-            InlineKeyboardButton('🔙 Back to Help', callback_data=f'help_u_{user_id}'),
+            InlineKeyboardButton('🔙 Back', callback_data='help'),
             InlineKeyboardButton('🔄 Close', callback_data='close_data')
         ]]
         await query.message.edit_text(
-            text=script.ABOUT_TXT.format(temp.U_NAME, temp.B_NAME, OWNER_LINK), # Use OWNER_LINK here
+            text=script.ABOUT_TXT.format(temp.U_NAME, temp.B_NAME, temp.U_NAME),
             reply_markup=InlineKeyboardMarkup(buttons),
             disable_web_page_preview=True
         )
-        return
         
-    # Add _u_{user_id} to callback data to make buttons user-specific if they lead to further interactions
-    # or if the response should only be seen by the original querier.
-    if data.startswith("course_help_u_") and str(user_id) == data.split("_")[-1]:
+    elif data == "start":
         buttons = [[
-            InlineKeyboardButton('🔙 Back to Help', callback_data=f'help_u_{user_id}'),
-            InlineKeyboardButton('🔄 Close', callback_data='close_data')
+            InlineKeyboardButton('➕ Add to Group', url=f'http://t.me/{temp.U_NAME}?startgroup=true'),
+            InlineKeyboardButton('🔍 Search', switch_inline_query_current_chat='')
         ]]
+        
+        # Add premium button if enabled
+        if PREMIUM_ENABLED:
+            buttons.append([InlineKeyboardButton('💎 Premium', callback_data='premium_info')])
+            
+        buttons.append([
+            InlineKeyboardButton('ℹ️ Help', callback_data='help'),
+            InlineKeyboardButton('📜 About', callback_data='about')
+        ])
+        
+        await query.message.edit_text(
+            text=script.START_TXT.format(query.from_user.mention),
+            reply_markup=InlineKeyboardMarkup(buttons),
+            disable_web_page_preview=True
+        )
+        
+    elif data == "course_help":
+        buttons = [[InlineKeyboardButton('🔙 Back', callback_data='help')]]
         await query.message.edit_text(
             text=script.COURSE_HELP,
             reply_markup=InlineKeyboardMarkup(buttons),
             disable_web_page_preview=True
         )
-        return
         
-    if data.startswith("search_help_u_") and str(user_id) == data.split("_")[-1]:
-        buttons = [[
-            InlineKeyboardButton('🔙 Back to Help', callback_data=f'help_u_{user_id}'),
-            InlineKeyboardButton('🔄 Close', callback_data='close_data')
-        ]]
+    elif data == "search_help":
+        buttons = [[InlineKeyboardButton('🔙 Back', callback_data='help')]]
         await query.message.edit_text(
             text=script.SEARCH_HELP,
             reply_markup=InlineKeyboardMarkup(buttons),
             disable_web_page_preview=True
         )
-        return
+    
+    elif data == "premium_help":
+        buttons = [[InlineKeyboardButton('🔙 Back', callback_data='help')]]
+        await query.message.edit_text(
+            text=script.PREMIUM_HELP,
+            reply_markup=InlineKeyboardMarkup(buttons),
+            disable_web_page_preview=True
+        )
         
-    # Handle course download callback
-    if data.startswith("course_download_"):
-        course_id = data.split("_")[2]
-        course = await get_course_by_id(course_id)
+    elif data == "token_help":
+        buttons = [[InlineKeyboardButton('🔙 Back', callback_data='help')]]
+        await query.message.edit_text(
+            text=script.TOKEN_HELP,
+            reply_markup=InlineKeyboardMarkup(buttons),
+            disable_web_page_preview=True
+        )
         
-        if not course:
-            await query.answer(script.COURSE_NOT_FOUND, show_alert=True) # Use script text
-            return
+    elif data == "premium_info":
+        # Show premium information
+        if PREMIUM_ENABLED:
+            user_id = query.from_user.id
+            user = await db.get_user(user_id)
+            is_premium = user and user.get("is_premium", False)
             
-        course_files = await get_course_files(course_id)
-        
-        if not course_files:
-            await query.answer("No files found for this course. It might be empty or under maintenance.", show_alert=True)
-            return
+            if is_premium:
+                expiry = user.get("premium_expiry")
+                if expiry:
+                    now = datetime.datetime.now()
+                    if expiry > now:
+                        time_left = expiry - now
+                        days = time_left.days
+                        hours, remainder = divmod(time_left.seconds, 3600)
+                        minutes, _ = divmod(remainder, 60)
+                        
+                        premium_text = (
+                            "**✨ You have an active Premium subscription!**\n\n"
+                            f"Your premium status will expire in:\n"
+                            f"**{days}** days, **{hours}** hours, and **{minutes}** minutes.\n\n"
+                            "Benefits of Premium:\n"
+                            "• Priority access to all courses\n"
+                            "• Faster downloads\n"
+                            "• No download limitations\n"
+                            "• Advanced search options\n"
+                            "• Premium support\n\n"
+                            "Thank you for supporting us!"
+                        )
+                    else:
+                        premium_text = (
+                            "**❌ Your Premium subscription has expired.**\n\n"
+                            "Would you like to renew it?\n\n"
+                            "Contact the administrator to renew your premium subscription."
+                        )
+                else:
+                    premium_text = (
+                        "**✨ You have an unlimited Premium subscription!**\n\n"
+                        "Benefits of Premium:\n"
+                        "• Priority access to all courses\n"
+                        "• Faster downloads\n"
+                        "• No download limitations\n"
+                        "• Advanced search options\n"
+                        "• Premium support\n\n"
+                        "Thank you for supporting us!"
+                    )
+            else:
+                premium_text = (
+                    "**💎 Premium Features**\n\n"
+                    "Upgrade to Premium to unlock these benefits:\n\n"
+                    "• Priority access to all courses\n"
+                    "• Faster downloads\n"
+                    "• No download limitations\n"
+                    "• Advanced search options\n"
+                    "• Premium support\n\n"
+                    "Contact the administrator to purchase a premium subscription."
+                )
             
-        # Inform user that files will be sent
-        await query.answer("Roger that! Sending the course files your way... ⏳", show_alert=False) # Less intrusive alert
+            buttons = [[
+                InlineKeyboardButton("Contact Admin", url=f"https://t.me/{OWNER_USERNAME}"),
+                InlineKeyboardButton("🔙 Back", callback_data="start")
+            ]]
+            
+            await query.message.edit_text(
+                premium_text,
+                reply_markup=InlineKeyboardMarkup(buttons),
+                disable_web_page_preview=True
+            )
+        else:
+            # Premium is disabled
+            await query.answer("Premium features are currently disabled.", show_alert=True)
+            
+    elif data == "close_data":
+        await query.message.delete()
         
-        welcome_text = f"<b>Get ready! 🚀 The files for {course['course_name']} are on their way to you now!</b>\n\nMake sure to check your chat for all the materials."
-        try:
-            await query.edit_message_text(welcome_text) # Edit the original message if possible
-        except MessageNotModified:
-            pass # If message is the same, no need to edit
-        except Exception as e:
-            logger.info(f"Couldn't edit message for course download, sending new one: {e}")
-            await client.send_message(query.from_user.id, welcome_text)
-
-        # Send all course files
-        await send_all_files(client, query.from_user.id, course_id, course_files)
-        
-        # Send a message after all files are sent
-        complete_text = f"<b>✅ All done! All files for {course['course_name']} have been successfully sent.</b>\n\nHope you enjoy the course and pick up some new chess skills!\n\nLooking for more?" # Using the new script text
-        buttons = [[
-            InlineKeyboardButton('🔍 Browse More Courses', switch_inline_query_current_chat=''),
-            InlineKeyboardButton('📢 Updates Channel', url=f"https://t.me/{PUBLIC_CHANNEL}")
-        ]]
-        await client.send_message(query.from_user.id, complete_text, reply_markup=InlineKeyboardMarkup(buttons))
-        return 
+    else:
+        await query.answer("Feature not implemented yet.", show_alert=True) 

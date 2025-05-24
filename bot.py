@@ -82,6 +82,12 @@ class Bot(Client):
         temp.BANNED_USERS = b_users
         temp.BANNED_CHATS = b_chats
         
+        # Load premium users if premium feature is enabled
+        if PREMIUM_ENABLED:
+            premium_users = await db.get_premium_users()
+            temp.PREMIUM_USERS = [user["_id"] for user in premium_users]
+            logging.info(f"Loaded {len(temp.PREMIUM_USERS)} premium users")
+        
         # Send startup message to log channel
         tz = pytz.timezone('Asia/Kolkata')
         now = datetime.now(tz)
